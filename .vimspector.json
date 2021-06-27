@@ -1,0 +1,21 @@
+{
+  "configurations": {
+    "test_chunkdb": {
+      "adapter": "vscode-cpptools",
+      "configuration": {
+        "type":    "cppdbg",
+        "request": "launch",
+        "program": "${workspaceRoot}/test.out.abort",
+        "args": [ ],
+        "cwd": "${workspaceRoot}",
+        "environment": [ ],
+        "externalConsole": false,
+        "stopAtEntry": false,
+        "MIMode": "gdb",
+        "logging": {
+          "engineLogging": false
+        }
+      }
+    }
+  }
+}

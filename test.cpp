@@ -1,43 +1,36 @@
-#include <bits/stdint-uintn.h>
-#include <cstdint>
-#include <cxxtest/TestSuite.h>
-#include <gsl/gsl>
-#include <initializer_list>
-#include <list>
 #define private public
 #define protected public
 #include "rangeset.hpp"
 #undef private
 #undef protected
+#include <criterion/criterion.h>
 
-
-class TestRangeSet : public CxxTest::TestSuite{
-public:
-  template <typename T>
-  void assert_rangeset_equals(const std::initializer_list<std::pair<T, T> > expected, const RangeSet<T> & set){
-    TS_ASSERT_EQUALS(expected.size(), set.size());
-    auto && it1 = expected.begin(), end1 = expected.end();
-    auto && it2 = set.cbegin(), end2 = set.cend();
-    for(; it1 != end1 && it2 != end2; ++it1, ++it2) {
-      TS_ASSERT_EQUALS(it1->first, it2->first);
-      TS_ASSERT_EQUALS(it1->second, it2->second);
-    }
+template <typename T>
+void assert_rangeset_equals(const std::initializer_list<std::pair<T, T> > expected, const RangeSet<T> & set){
+  cr_assert_eq(expected.size(), set.size());
+  auto && it1 = expected.begin(), end1 = expected.end();
+  auto && it2 = set.cbegin(), end2 = set.cend();
+  for(; it1 != end1 && it2 != end2; ++it1, ++it2) {
+    cr_assert_eq(it1->first, it2->first);
+    cr_assert_eq(it1->second, it2->second);
   }
+}
 
-  template <typename T>
-  void assert_state(const RangeSet<T> & set){
-    TS_ASSERT_EQUALS(true, set.data.size() % 2 == 0 );
-    if(set.data.size() % 2){
-      return;
-    }
-    auto && it = set.data.begin(), end = set.data.end();
-    while(it != end) {
-      TS_ASSERT_EQUALS((int) it++->dir, (int) RangeSet<T>::end_point_t::LOWER);
-      TS_ASSERT_EQUALS((int) it++->dir, (int) RangeSet<T>::end_point_t::UPPER);
-    }
+template <typename T>
+void assert_state(const RangeSet<T> & set){
+  cr_assert_eq(true, set.data.size() % 2 == 0 );
+  if(set.data.size() % 2){
+    return;
   }
+  auto && it = set.data.begin(), end = set.data.end();
+  while(it != end) {
+    cr_assert_eq((int) it++->dir, (int) RangeSet<T>::end_point_t::LOWER);
+    cr_assert_eq((int) it++->dir, (int) RangeSet<T>::end_point_t::UPPER);
+  }
+}
 
-  void test_insert(){
+
+Test(rangeset, insert){
     RangeSet<int> set{};
     assert_state(set);
     assert_rangeset_equals({}, set);
@@ -176,9 +169,10 @@ public:
     assert_rangeset_equals({
       {2, 115},
     }, set);
-  }
-  
-  void test_remove(){
+  }  
+
+
+Test(rangeset, erase){
     RangeSet<int> set{};
     assert_state(set);
     assert_rangeset_equals({}, set);
@@ -256,6 +250,3 @@ public:
     assert_state(set);
     assert_rangeset_equals({}, set);
   }
-};
-
-

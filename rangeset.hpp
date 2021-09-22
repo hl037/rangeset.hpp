@@ -9,7 +9,7 @@
  *
  * This class supports adding and removing ranges from the set, and testing if a given object or range is contained in the set.
  */
-template <typename T>
+template <typename T, bool STRICT_OVERLAP=false>
 class RangeSet{
   private:
   /** \internal
@@ -19,8 +19,8 @@ class RangeSet{
   struct end_point_t{
     T v;
     enum {
-      LOWER=0,
-      UPPER=1,
+      LOWER=STRICT_OVERLAP ? 1 : 0,
+      UPPER=1-LOWER,
     } dir;
     bool operator<(const end_point_t & oth) const{
       return v == oth.v ? dir < oth.dir : v < oth.v;
@@ -71,19 +71,19 @@ class RangeSet{
 
   /**
    *  Add the range [start, end) (or "[start; end[" in other notation) to the set.
-   *  If overlap occurs, the ranges are merged.
+   *  If overlap occurs, the ranges are merged. if STRICT_OVERLAP is False, [start, mid) and [mid, end) will be merged to [start, end). Else, they will coeexist.
    */
   void insert(T start, T end){
-    auto && upper = data.upper_bound({end, end_point_t::UPPER});
+    auto && upper = data.upper_bound({end, end_point_t::UPPER}); // {end, ')'} < upper OR upper == end() 
     // At the container begining
-    if(upper == data.begin()){
+    if(upper == data.begin()){  //    [start , end) < [upper=begin(), end() )
       data.insert(data.begin(), {end, end_point_t::UPPER});
       data.insert(data.begin(), {start, end_point_t::LOWER});
       return;
     }
 
-    if(upper == data.end() or upper->dir == end_point_t::LOWER){
-      if(std::prev(upper)->v != end){
+    if(upper == data.end() or upper->dir == end_point_t::LOWER){  // ')' < end < '['
+      if(std::prev(upper)->v != end){ // if not same value, insert, else just skip and take upper's precedent
         data.insert(upper, {end, end_point_t::UPPER});
       }
       --upper;
@@ -198,7 +198,7 @@ class RangeSet{
   }
 
   /**
-   * Return the numbe of unit range in the set (The number of iterator beetwin cbegin() and cend())
+   * Return the number of unit range in the set (The number of iterator beetwin cbegin() and cend())
    */
   inline size_t size() const { return data.size() / 2; }
 

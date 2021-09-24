@@ -5,8 +5,8 @@
       "configuration": {
         "type":    "cppdbg",
         "request": "launch",
-        "program": "${workspaceRoot}/test.out.abort",
-        "args": [ ],
+        "program": "${workspaceRoot}/test.out",
+        "args": [ "-b", "*${args}" ],
         "cwd": "${workspaceRoot}",
         "environment": [ ],
         "externalConsole": false,

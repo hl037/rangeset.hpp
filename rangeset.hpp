@@ -8,8 +8,12 @@
  * A range set is a set comprising zero or more nonempty, disconnected ranges of type T.
  *
  * This class supports adding and removing ranges from the set, and testing if a given object or range is contained in the set.
+ *
+ * @tparam T type of the contained range end points (anything with an absolute order defined)
+ *
+ * @tparam MERGE_TOUCHING if true (default) inserting [10, 20) then [20, 30) will merge both the range to [10;30). If set to false, both will live in the range set. To merge then, one would have to insert [19, 21)
  */
-template <typename T>
+template <typename T, bool MERGE_TOUCHING=true>
 class RangeSet{
   private:
   /** \internal
@@ -19,8 +23,10 @@ class RangeSet{
   struct end_point_t{
     T v;
     enum {
-      LOWER=0,
-      UPPER=1,
+      BEFORE=0,
+      LOWER=MERGE_TOUCHING ? 1 : 2,
+      UPPER=3-LOWER,
+      AFTER=2
     } dir;
     bool operator<(const end_point_t & oth) const{
       return v == oth.v ? dir < oth.dir : v < oth.v;
@@ -58,40 +64,44 @@ class RangeSet{
     inline const_iterator() : lower{} {}
     inline const_iterator(const _sub & lower, const _sub & end) : lower{lower}, end{end}{ update(); }
 
-    inline reference operator*() { return val; }
-    inline pointer operator->() { return &val; }
+    inline reference operator*() const { return val; }
+    inline pointer operator->() const { return &val; }
     inline const_iterator & operator++() { ++++lower; update(); return *this; }
     inline const_iterator operator++(int) { const_iterator res{*this}; ++*this; return res; }
     inline const_iterator & operator--() { ----lower; update(); return *this; }
     inline const_iterator operator--(int) { const_iterator res{*this}; --*this; return res; }
 
-    inline bool operator==(const const_iterator & oth) { return lower == oth.lower; }
-    inline bool operator!=(const const_iterator & oth) { return !(*this == oth); }
+    inline bool operator==(const const_iterator & oth) const { return lower == oth.lower; }
+    inline bool operator!=(const const_iterator & oth) const { return !(*this == oth); }
   };
 
   /**
    *  Add the range [start, end) (or "[start; end[" in other notation) to the set.
-   *  If overlap occurs, the ranges are merged.
+   *  If overlap occurs, the ranges are merged. if STRICT_OVERLAP is False, [start, mid) and [mid, end) will be merged to [start, end). Else, they will coeexist.
    */
   void insert(T start, T end){
-    auto && upper = data.upper_bound({end, end_point_t::UPPER});
+    if(end <= start){
+      return;
+    }
+    auto && upper = data.upper_bound({end, end_point_t::UPPER}); // end) < upper OR upper == end() 
     // At the container begining
-    if(upper == data.begin()){
+    if(upper == data.begin()){  //    [start , end) < [ upper=begin(), end() )
       data.insert(data.begin(), {end, end_point_t::UPPER});
       data.insert(data.begin(), {start, end_point_t::LOWER});
       return;
     }
 
-    if(upper == data.end() or upper->dir == end_point_t::LOWER){
-      if(std::prev(upper)->v != end){
+    if(upper == data.end() or upper->dir == end_point_t::LOWER){  // ')' < end < '['
+      if(std::prev(upper)->v != end){ // if not same value, insert, else just skip and take upper's precedent
         data.insert(upper, {end, end_point_t::UPPER});
       }
       --upper;
     }
     
-    auto && lower = data.upper_bound({start, end_point_t::LOWER});
+    auto && lower = data.upper_bound({start, end_point_t::LOWER});//    [start < lower
 
-    if((lower == upper || lower->dir == end_point_t::LOWER) && lower->v != start){
+    if((lower == upper || lower->dir == end_point_t::LOWER) && lower->v != start
+        && (lower == data.begin() || std::prev(lower)->dir == end_point_t::UPPER)){
       data.insert(lower, {start, end_point_t::LOWER});
     }
     
@@ -155,50 +165,53 @@ class RangeSet{
    * Remove unit ranges from the set (could be faster than remove)
    */
   inline void erase(const_iterator it_begin, const_iterator it_end){
-    data.erase(it_begin._sub, it_end._sub);
+    if(it_begin == cend()){
+      return;
+    }
+    data.erase(it_begin.lower, it_end.lower);
   }
 
   inline void erase(const_iterator it){
-    erase(it, ++it);
+    if(it == cend()){
+      return;
+    }
+    auto it2 = it.lower;
+    ++++it2;
+    data.erase(it.lower, it2);
   }
 
   /**
    * Find the unit range that contains a specific value.
    * Returns cend() if not v is not in the set.
    */
-  const_iterator find(const T & v){
-    auto && lower = data.lower_bound({v, end_point_t::LOWER});
-    if(lower != data.end() && lower->dir == end_point_t::LOWER){
-      return const_iterator(lower, data.end());
+  const_iterator find(const T & v) const {
+    auto && upper = data.upper_bound({v, end_point_t::AFTER}); // v < lower
+    if(upper == data.begin() || upper == data.end() || upper->dir == end_point_t::LOWER){
+      return cend();
     }
     else {
-      return cend();
+      return const_iterator(--upper, data.end());
     }
   }
   
   /**
    * Find the unit range that contains the sub range [start, end) (or [start; end[ )
    */
-  const_iterator find(const T & start, const T & end){
-    auto && lower = data.lower_bound({start, end_point_t::LOWER});
-    auto && upper = ++data.lower_bound({end, end_point_t::UPPER});
-    if(lower != data.end() && upper != data.end
-      && lower->dir == end_point_t::LOWER
-      && upper->dir == end_point_t::UPPER
-      && std::next(lower) == upper
-    ){
-      return const_iterator(lower);
-    }
-    else {
+  const_iterator find(const T & start, const T & end) const {
+    auto && upper = data.upper_bound({start, end_point_t::AFTER}); // v < lower
+    if(upper == data.begin() || upper == data.end() || upper->dir == end_point_t::LOWER || upper->v < end){
       return cend();
     }
+    else {
+      return const_iterator(--upper, data.end());
+    }
   }
-  inline const_iterator find(const std::pair<T,T> & range){
+  inline const_iterator find(const std::pair<T,T> & range) const {
     return find(range.first, range.second);
   }
 
   /**
-   * Return the numbe of unit range in the set (The number of iterator beetwin cbegin() and cend())
+   * Return the number of unit range in the set (The number of iterator beetwin cbegin() and cend())
    */
   inline size_t size() const { return data.size() / 2; }
 

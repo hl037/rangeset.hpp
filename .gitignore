@@ -55,5 +55,5 @@ wsdata
 _me_*
 
 build
+doc
 
-test.cpp

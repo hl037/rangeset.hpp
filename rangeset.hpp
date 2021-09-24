@@ -8,6 +8,10 @@
  * A range set is a set comprising zero or more nonempty, disconnected ranges of type T.
  *
  * This class supports adding and removing ranges from the set, and testing if a given object or range is contained in the set.
+ *
+ * @tparam T type of the contained range end points (anything with an absolute order defined)
+ *
+ * @tparam MERGE_TOUCHING if true (default) inserting [10, 20) then [20, 30) will merge both the range to [10;30). If set to false, both will live in the range set. To merge then, one would have to insert [19, 21)
  */
 template <typename T, bool MERGE_TOUCHING=true>
 class RangeSet{
@@ -161,11 +165,19 @@ class RangeSet{
    * Remove unit ranges from the set (could be faster than remove)
    */
   inline void erase(const_iterator it_begin, const_iterator it_end){
-    data.erase(it_begin._sub, it_end._sub);
+    if(it_begin == cend()){
+      return;
+    }
+    data.erase(it_begin.lower, it_end.lower);
   }
 
   inline void erase(const_iterator it){
-    erase(it, ++it);
+    if(it == cend()){
+      return;
+    }
+    auto it2 = it.lower;
+    ++++it2;
+    data.erase(it.lower, it2);
   }
 
   /**

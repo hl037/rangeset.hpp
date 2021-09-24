@@ -1080,7 +1080,6 @@ DECLARE_DATA_CASE(simple) {
   },
 };
   
-  
 DECLARE_DATA_CASE(three_ranges) {
   // START
   {
@@ -1255,6 +1254,205 @@ DATA_CASE_TEST(PARAM_TYPE param, RangeSet<T, B> & set){
 
 
 
+
+DECLARE_PARAMS_SECTION(erase1){
+
+DECLARE_PARAM_TYPE{
+  const char * name;
+  const std::initializer_list<std::pair<int, int> > inserted;
+  int it_ind_removed;
+  const std::initializer_list<std::pair<int, int> > expected;
+};
+
+DECLARE_DATA_CASE(simple) {
+  {
+    "Empty is empty",
+    {},
+    0,
+    {}
+  },
+  {
+    "One",
+    {{10, 20}},
+    0,
+    {}
+  },
+  {
+    "One no erase",
+    {{10, 20}},
+    1,
+    {{10, 20}},
+  },
+  {
+    "Three no erase",
+    {{10, 20}, {30, 40}, {50, 60}},
+    3,
+    {{10, 20}, {30, 40}, {50, 60}},
+  },
+  {
+    "Three start",
+    {{10, 20}, {30, 40}, {50, 60}},
+    0,
+    {{30, 40}, {50, 60}},
+  },
+  {
+    "Three mid",
+    {{10, 20}, {30, 40}, {50, 60}},
+    1,
+    {{10, 20}, {50, 60}},
+  },
+  {
+    "Three end",
+    {{10, 20}, {30, 40}, {50, 60}},
+    2,
+    {{10, 20}, {30, 40}},
+  },
+};
+
+
+template<typename T, bool B>
+DATA_CASE_TEST(PARAM_TYPE param, RangeSet<T, B> & set){
+  for(auto && p:param.inserted){
+    set.insert(p);
+  }
+  auto && it = set.cbegin();
+  for( int i=0 ; i<param.it_ind_removed ; ++i ){
+    ++it;
+  }
+  set.erase(it);
+  assert_state(set);
+  assert_rangeset_equals(param.expected, set);
+}
+
+};
+
+DECLARE_PARAMS_SECTION(erase2){
+
+DECLARE_PARAM_TYPE{
+  const char * name;
+  const std::initializer_list<std::pair<int, int> > inserted;
+  const std::pair<int, int> it_ind_removed;
+  const std::initializer_list<std::pair<int, int> > expected;
+  
+};
+
+DECLARE_DATA_CASE(simple) {
+  {
+    "Empty",
+    {},
+    {0, 0},
+    {}
+  },
+  {
+    "One keep",
+    {{10, 20}},
+    {0, 0},
+    {{10, 20}}
+  },
+  {
+    "One remove",
+    {{10, 20}},
+    {0, 1},
+    {}
+  },
+  {
+    "One keep end",
+    {{10, 20}},
+    {1, 1},
+    {{10, 20}}
+  },
+};
+
+DECLARE_DATA_CASE(three_ranges) {
+  {
+    "begin",
+    {{10, 20}, {30,40}, {50, 60}},
+    {0, 1},
+    {{30, 40}, {50, 60}}
+  },
+  {
+    "mid",
+    {{10, 20}, {30,40}, {50, 60}},
+    {1, 2},
+    {{10, 20}, {50, 60}}
+  },
+  {
+    "end",
+    {{10, 20}, {30,40}, {50, 60}},
+    {2, 3},
+    {{10, 20}, {30, 40}}
+  },
+  {
+    "begin2",
+    {{10, 20}, {30,40}, {50, 60}},
+    {0, 2},
+    {{50, 60}}
+  },
+  {
+    "end2",
+    {{10, 20}, {30,40}, {50, 60}},
+    {1, 3},
+    {{10, 20}}
+  },
+  {
+    "all",
+    {{10, 20}, {30,40}, {50, 60}},
+    {0, 3},
+    {}
+  },
+  {
+    "nothing1",
+    {{10, 20}, {30,40}, {50, 60}},
+    {0, 0},
+    {{10, 20}, {30,40}, {50, 60}},
+  },
+  {
+    "nothing2",
+    {{10, 20}, {30,40}, {50, 60}},
+    {1, 1},
+    {{10, 20}, {30,40}, {50, 60}},
+  },
+  {
+    "nothing3",
+    {{10, 20}, {30,40}, {50, 60}},
+    {2, 2},
+    {{10, 20}, {30,40}, {50, 60}},
+  },
+  {
+    "nothing4",
+    {{10, 20}, {30,40}, {50, 60}},
+    {3, 3},
+    {{10, 20}, {30,40}, {50, 60}},
+  },
+  
+};
+
+
+
+template<typename T, bool B>
+DATA_CASE_TEST(PARAM_TYPE param, RangeSet<T, B> & set){
+  for(auto && p:param.inserted){
+    set.insert(p);
+  }
+  auto && it0 = set.cbegin();
+  for( int i=0 ; i<param.it_ind_removed.first ; ++i ){
+    ++it0;
+  }
+  auto && it1 = set.cbegin();
+  for( int i=0 ; i<param.it_ind_removed.second ; ++i ){
+    ++it1;
+  }
+  set.erase(it0, it1);
+  assert_state(set);
+  assert_rangeset_equals(param.expected, set);
+}
+
+};
+
+
+
+
+
 TEST_CASE("rangeset merge touching"){
   RangeSet<int> set;
   BEGIN_PARAMS_SECTION(insert)
@@ -1280,8 +1478,19 @@ TEST_CASE("rangeset merge touching"){
   BEGIN_PARAMS_SECTION(find2)
     // Tests find(start, end), find(pair)
     DATA_CASE(simple)
+    DATA_CASE(three_ranges)
   END
   
+  BEGIN_PARAMS_SECTION(erase1)
+    // Tests erase(it)
+    DATA_CASE(simple)
+  END
+
+  BEGIN_PARAMS_SECTION(erase2)
+    // Tests erase(it1, it2)
+    DATA_CASE(simple)
+    DATA_CASE(three_ranges)
+  END
 }
 
 TEST_CASE("rangeset keep touching"){
@@ -1309,8 +1518,19 @@ TEST_CASE("rangeset keep touching"){
   BEGIN_PARAMS_SECTION(find2)
     // Tests find(start, end), find(pair)
     DATA_CASE(simple)
+    DATA_CASE(three_ranges)
   END
   
+  BEGIN_PARAMS_SECTION(erase1)
+    // Tests erase(it)
+    DATA_CASE(simple)
+  END
+  
+  BEGIN_PARAMS_SECTION(erase2)
+    // Tests erase(it1, it2)
+    DATA_CASE(simple)
+    DATA_CASE(three_ranges)
+  END
 }
 
 

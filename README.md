@@ -14,8 +14,8 @@ set.insert(80, 90);
 
 set.remove(22, 28);
 
-std::cout<<(set.find(25) != set.end)<<endl; // 0
-std::cout<<(set.find(20) != set.end)<<endl; // 1
+std::cout<<(set.find(25) != set.end())<<endl; // 0
+std::cout<<(set.find(20) != set.end())<<endl; // 1
 
 std::cout<<(set.find(25, 30) != set.end())<<endl; // 0
 std::cout<<(set.find(30, 35) != set.end())<<endl; // 1

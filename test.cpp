@@ -6,42 +6,34 @@
 #undef private
 #undef protected
 
-#define CATCH_CONFIG_MAIN
-#include <catch2/catch.hpp>
+#include <ostream>
+
+template <typename T, bool B>
+inline std::ostream& _helper1 ( std::ostream& os, typename RangeSet<T, B>::const_iterator const& it ) {
+  if(it.lower == it.end){
+    return os << "{END iterator}";
+  }
+  else {
+    return os << "(" << it->first << ", " << it->second << ")";
+  }
+}
+
+
+std::ostream& operator<< ( std::ostream& os, typename RangeSet<int, true>::const_iterator const& it ) {
+  return _helper1<int, true>(os, it);
+}
+std::ostream& operator<< ( std::ostream& os, typename RangeSet<int, false>::const_iterator const& it ) {
+  return _helper1<int, false>(os, it);
+}
+
+
+
+
+#define CATCH_CONFIG_ENABLE_PAIR_STRINGMAKER
+#include "test.hpp"
+
 
 namespace test_rangeset{
-
-template <typename T>
-struct data_case_t
-{
-  private:
-    const T* start;
-    size_t size;
-  public:
-
-  data_case_t()=default;
-  ~data_case_t()=default;
-
-  template<typename B>
-  explicit data_case_t(const B & collection) :
-    start(std::begin(collection))
-  {
-    size = std::end(collection) - start;
-  }
-
-  data_case_t<T> & operator=(const data_case_t<T> &)=default;
-  
-  template<typename B>
-  data_case_t<T> & operator=(const B & collection)
-  {
-    start = std::cbegin(collection);
-    size = std::cend(collection) - start;
-    return *this;
-  }
-
-  const T* begin() const { return start; }
-  const T* end () const { return &start[size]; }
-};
 
 template <typename T, bool B>
 void assert_rangeset_equals(const std::initializer_list<std::pair<T, T> > & expected, const RangeSet<T, B> & set){
@@ -68,7 +60,7 @@ void assert_state(const RangeSet<T, B> & set){
 }
 
 
-namespace insert {
+struct insert {
 
 struct param_t {
   const char * name;
@@ -76,7 +68,7 @@ struct param_t {
   const std::initializer_list<std::pair<int, int> > expected;
 };
 
-static param_t simple[] = {
+static constexpr param_t simple[] = {
   //////// SIMPLE ////////
   {
     "Empty is Empty",
@@ -105,7 +97,7 @@ static param_t simple[] = {
   },
 };
 
-static param_t common[] = {
+static constexpr param_t common[] = {
   //////// COMMON ////////
   {
     "Base for other tests + insert at end",
@@ -244,7 +236,7 @@ static param_t common[] = {
   },
 };
 
-static param_t merge_touching[] = {
+static constexpr param_t merge_touching[] = {
   //////// MERGE_TOUCHING ////////
   {
     "Join begin",
@@ -293,7 +285,7 @@ static param_t merge_touching[] = {
   },
 };
 
-static param_t keep_touching[] = {
+static constexpr param_t keep_touching[] = {
   //////// KEEP_TOUCHING ////////
   {
     "Do not Join begin",
@@ -353,21 +345,19 @@ static param_t keep_touching[] = {
 };
 
 template<typename T, bool B>
-void test(RangeSet<T, B> & set, const data_case_t<param_t> & data_case){
-  for(auto && param:data_case){
-    SECTION(param.name){
-      for(auto && p:param.inserted){
-        set.insert(p);
-      }
-      assert_state(set);
-      assert_rangeset_equals(param.expected, set);
-    }
+static void test(const param_t & param, RangeSet<T, B> & set){
+  for(auto && p:param.inserted){
+    set.insert(p);
   }
+  assert_state(set);
+  assert_rangeset_equals(param.expected, set);
 }
 
-}
+};
 
-namespace remove {
+
+
+struct remove {
 
 struct param_t {
   const char * name;
@@ -376,7 +366,7 @@ struct param_t {
   const std::initializer_list<std::pair<int, int> > expected;
 };
 
-static param_t trivial[] = {
+static constexpr param_t trivial[] = {
   {
     "Remove nothing to nothing is still nothing",
     {},
@@ -397,7 +387,7 @@ static param_t trivial[] = {
   },
 };
 
-static param_t one_range[] = {
+static constexpr param_t one_range[] = {
   {
     "Remove before",
     {{10, 20}},
@@ -466,7 +456,7 @@ static param_t one_range[] = {
   },
 };
 
-static param_t three_ranges[] = {
+static constexpr param_t three_ranges[] = {
   {
     "Remove begin overlap",
     {{10, 20}, {30, 40}, {50, 60}},
@@ -854,243 +844,618 @@ static param_t three_ranges[] = {
 };
 
 template<typename T, bool B>
-void test(RangeSet<T, B> & set, const data_case_t<param_t> & data_case){
-  for(auto && param:data_case){
-    SECTION(param.name){
-      for(auto && p:param.inserted){
-        set.insert(p);
-      }
-      for(auto && p:param.removed){
-        set.remove(p);
-      }
-      assert_state(set);
-      assert_rangeset_equals(param.expected, set);
-    }
+static void test(const param_t & param, RangeSet<T, B> & set){
+  for(auto && p:param.inserted){
+    set.insert(p);
+  }
+  for(auto && p:param.removed){
+    set.remove(p);
+  }
+  assert_state(set);
+  assert_rangeset_equals(param.expected, set);
+}
+
+};
+
+
+DECLARE_PARAMS_SECTION(find1){
+
+DECLARE_PARAM_TYPE{
+  const char * name;
+  const std::initializer_list<std::pair<int, int> > inserted;
+  const int searched;
+  const std::pair<int, int> expected; // (-1, -1) = end()
+};
+
+DECLARE_DATA_CASE(simple) {
+  {
+    "Empty no find",
+    {},
+    42,
+    {-1,-1}
+  },
+  {
+    "Before",
+    {{10, 20}},
+    5,
+    {-1,-1}
+  },
+  {
+    "After",
+    {{10, 20}},
+    25,
+    {-1,-1}
+  },
+  {
+    "Inside",
+    {{10, 20}},
+    15,
+    {10,20}
+  },
+  {
+    "Start",
+    {{10, 20}},
+    10,
+    {10,20}
+  },
+  {
+    "End",
+    {{10, 20}},
+    20,
+    {-1,-1}
+  },
+};
+
+DECLARE_DATA_CASE(three_ranges) {
+  // START
+  {
+    "start, Before",
+    {{10, 20}, {30, 40}, {50, 60}},
+    5,
+    {-1,-1}
+  },
+  {
+    "start, After",
+    {{10, 20}, {30, 40}, {50, 60}},
+    25,
+    {-1,-1}
+  },
+  {
+    "start, Inside",
+    {{10, 20}, {30, 40}, {50, 60}},
+    15,
+    {10,20}
+  },
+  {
+    "start, Start",
+    {{10, 20}, {30, 40}, {50, 60}},
+    10,
+    {10,20}
+  },
+  {
+    "start, End",
+    {{10, 20}, {30, 40}, {50, 60}},
+    20,
+    {-1,-1}
+  },
+  // MIDDLE
+  {
+    "middle, After",
+    {{10, 20}, {30, 40}, {50, 60}},
+    45,
+    {-1,-1}
+  },
+  {
+    "middle, Inside",
+    {{10, 20}, {30, 40}, {50, 60}},
+    35,
+    {30,40}
+  },
+  {
+    "middle, Start",
+    {{10, 20}, {30, 40}, {50, 60}},
+    30,
+    {30,40}
+  },
+  {
+    "middle, End",
+    {{10, 20}, {30, 40}, {50, 60}},
+    40,
+    {-1,-1}
+  },
+  // END
+  {
+    "end, After",
+    {{10, 20}, {30, 40}, {50, 60}},
+    65,
+    {-1,-1}
+  },
+  {
+    "end, Inside",
+    {{10, 20}, {30, 40}, {50, 60}},
+    55,
+    {50,60}
+  },
+  {
+    "end, Start",
+    {{10, 20}, {30, 40}, {50, 60}},
+    50,
+    {50,60}
+  },
+  {
+    "end, End",
+    {{10, 20}, {30, 40}, {50, 60}},
+    60,
+    {-1,-1}
+  },
+  
+};
+
+template<typename T, bool B>
+DATA_CASE_TEST(PARAM_TYPE param, RangeSet<T, B> & set){
+  for(auto && p:param.inserted){
+    set.insert(p);
+  }
+  if(param.expected.first == -1){
+    REQUIRE(set.find(param.searched) == set.cend());
+  }
+  else {
+    REQUIRE(*set.find(param.searched) == param.expected);
   }
 }
 
+};
+
+
+
+DECLARE_PARAMS_SECTION(find2){
+
+DECLARE_PARAM_TYPE{
+  const char * name;
+  const std::initializer_list<std::pair<int, int> > inserted;
+  const std::pair<int, int> searched;
+  const std::pair<int, int> expected; // (-1, -1) = end()
+};
+
+DECLARE_DATA_CASE(simple) {
+  {
+    "Empty no find",
+    {},
+    {42, 53},
+    {-1, -1}
+  },
+  {
+    "Before",
+    {{10, 20}},
+    {5, 7},
+    {-1, -1}
+  },
+  {
+    "After",
+    {{10, 20}},
+    {25, 27},
+    {-1, -1}
+  },
+  {
+    "Inside",
+    {{10, 20}},
+    {15, 17},
+    {10, 20}
+  },
+  {
+    "Start, before",
+    {{10, 20}},
+    {5, 10},
+    {-1, -1}
+  },
+  {
+    "Start, wrap",
+    {{10, 20}},
+    {5, 15},
+    {-1, -1}
+  },
+  {
+    "Start, after",
+    {{10, 20}},
+    {10, 15},
+    {10, 20}
+  },
+  {
+    "End, before",
+    {{10, 20}},
+    {15, 20},
+    {10, 20}
+  },
+  {
+    "End, wrap",
+    {{10, 20}},
+    {15, 25},
+    {-1, -1}
+  },
+  {
+    "End, after",
+    {{10, 20}},
+    {20, 25},
+    {-1, -1}
+  },
+};
+  
+  
+DECLARE_DATA_CASE(three_ranges) {
+  // START
+  {
+    "start, Before",
+    {{10, 20}, {30, 40}, {50, 60}},
+    {5, 7},
+    {-1,-1}
+  },
+  {
+    "start, After",
+    {{10, 20}, {30, 40}, {50, 60}},
+    {25, 27},
+    {-1,-1}
+  },
+  {
+    "start, Inside",
+    {{10, 20}, {30, 40}, {50, 60}},
+    {15, 17},
+    {10,20}
+  },
+  {
+    "start, Start before",
+    {{10, 20}, {30, 40}, {50, 60}},
+    {5, 10},
+    {-1,-1}
+  },
+  {
+    "start, Start wrap",
+    {{10, 20}, {30, 40}, {50, 60}},
+    {5, 15},
+    {-1,-1}
+  },
+  {
+    "start, Start after",
+    {{10, 20}, {30, 40}, {50, 60}},
+    {10, 15},
+    {10,20}
+  },
+  {
+    "start, End before",
+    {{10, 20}, {30, 40}, {50, 60}},
+    {15, 20},
+    {10,20}
+  },
+  {
+    "start, End wrap",
+    {{10, 20}, {30, 40}, {50, 60}},
+    {15, 25},
+    {-1,-1}
+  },
+  {
+    "start, End after",
+    {{10, 20}, {30, 40}, {50, 60}},
+    {20, 25},
+    {-1,-1}
+  },
+  // MIDDLE
+  {
+    "middle, After",
+    {{10, 20}, {30, 40}, {50, 60}},
+    {45, 47},
+    {-1,-1}
+  },
+  {
+    "middle, Inside",
+    {{10, 20}, {30, 40}, {50, 60}},
+    {35, 37},
+    {30,40}
+  },
+  {
+    "start, Start before",
+    {{10, 20}, {30, 40}, {50, 60}},
+    {25, 30},
+    {-1,-1}
+  },
+  {
+    "start, Start wrap",
+    {{10, 20}, {30, 40}, {50, 60}},
+    {25, 35},
+    {-1,-1}
+  },
+  {
+    "start, Start after",
+    {{10, 20}, {30, 40}, {50, 60}},
+    {30, 35},
+    {30,40}
+  },
+  {
+    "start, End before",
+    {{10, 20}, {30, 40}, {50, 60}},
+    {35, 40},
+    {30,40}
+  },
+  {
+    "start, End wrap",
+    {{10, 20}, {30, 40}, {50, 60}},
+    {35, 45},
+    {-1,-1}
+  },
+  {
+    "start, End after",
+    {{10, 20}, {30, 40}, {50, 60}},
+    {40, 45},
+    {-1,-1}
+  },
+  // END
+  {
+    "end, After",
+    {{10, 20}, {30, 40}, {50, 60}},
+    {65, 67},
+    {-1,-1}
+  },
+  {
+    "end, Inside",
+    {{10, 20}, {30, 40}, {50, 60}},
+    {55, 57},
+    {50,60}
+  },
+  {
+    "start, Start before",
+    {{10, 20}, {30, 40}, {50, 60}},
+    {45, 50},
+    {-1,-1}
+  },
+  {
+    "start, Start wrap",
+    {{10, 20}, {30, 40}, {50, 60}},
+    {45, 55},
+    {-1,-1}
+  },
+  {
+    "start, Start after",
+    {{10, 20}, {30, 40}, {50, 60}},
+    {50, 55},
+    {50,60}
+  },
+  {
+    "start, End before",
+    {{10, 20}, {30, 40}, {50, 60}},
+    {55, 60},
+    {50,60}
+  },
+  {
+    "start, End wrap",
+    {{10, 20}, {30, 40}, {50, 60}},
+    {55, 65},
+    {-1,-1}
+  },
+  {
+    "start, End after",
+    {{10, 20}, {30, 40}, {50, 60}},
+    {60, 65},
+    {-1,-1}
+  },
+};
+
+template<typename T, bool B>
+DATA_CASE_TEST(PARAM_TYPE param, RangeSet<T, B> & set){
+  for(auto && p:param.inserted){
+    set.insert(p);
+  }
+  if(param.expected.first == -1){
+    REQUIRE(set.find(param.searched) == set.cend());
+  }
+  else {
+    REQUIRE(*set.find(param.searched) == param.expected);
+  }
 }
+
+};
+
+
+
 
 TEST_CASE("rangeset merge touching"){
   RangeSet<int> set;
-  SECTION("insert"){
+  BEGIN_PARAMS_SECTION(insert)
     // Tests insert(pair), insert(start, end), const_iterator, cbegin, cend, size, 
-    using namespace insert;
-    data_case_t<param_t> data;
-    SECTION("simple"){
-      data = simple;
-      test(set, data);
-    }
-    SECTION("common"){
-      data = common;
-      test(set, data);
-    }
-    SECTION("merge_touching"){
-      data = merge_touching;
-      test(set, data);
-    }
-  }
-  SECTION("remove"){
+    DATA_CASE(simple)
+    DATA_CASE(common)
+    DATA_CASE(merge_touching)
+  END
+
+  BEGIN_PARAMS_SECTION(remove)
     // Tests remove(pair), remove(start, end) 
-    using namespace remove;
-    data_case_t<param_t> data;
-    SECTION("trivial"){
-      data = trivial;
-      test(set, data);
-    }
-    SECTION("1_range"){
-      data = one_range;
-      test(set, data);
-    }
-    SECTION("3_ranges"){
-      data = three_ranges;
-      test(set, data);
-    }
-  }
+    DATA_CASE(trivial)
+    DATA_CASE(one_range)
+    DATA_CASE(three_ranges)
+  END
+
+  BEGIN_PARAMS_SECTION(find1)
+    // Tests find(val)
+    DATA_CASE(simple)
+    DATA_CASE(three_ranges)
+  END
+
+  BEGIN_PARAMS_SECTION(find2)
+    // Tests find(start, end), find(pair)
+    DATA_CASE(simple)
+  END
+  
 }
 
 TEST_CASE("rangeset keep touching"){
   RangeSet<int, false> set;
-  SECTION("insert"){
+  BEGIN_PARAMS_SECTION(insert)
     // Tests insert(pair), insert(start, end), const_iterator, cbegin, cend, size, 
-    using namespace insert;
-    data_case_t<param_t> data;
-    SECTION("simple"){
-      data = simple;
-      test(set, data);
-    }
-    SECTION("common"){
-      data = common;
-      test(set, data);
-    }
-    SECTION("keep_touching"){
-      data = keep_touching;
-      test(set, data);
-    }
-  }
-  SECTION("remove"){
+    DATA_CASE(simple)
+    DATA_CASE(common)
+    DATA_CASE(keep_touching)
+  END
+
+  BEGIN_PARAMS_SECTION(remove)
     // Tests remove(pair), remove(start, end) 
-    using namespace remove;
-    data_case_t<param_t> data;
-    SECTION("trivial"){
-      data = trivial;
-      test(set, data);
-    }
-    SECTION("1_range"){
-      data = one_range;
-      test(set, data);
-    }
-    SECTION("3_range"){
-      data = three_ranges;
-      test(set, data);
-    }
-  }
+    DATA_CASE(trivial)
+    DATA_CASE(one_range)
+    DATA_CASE(three_ranges)
+  END
+
+  BEGIN_PARAMS_SECTION(find1)
+    // Tests find(val)
+    DATA_CASE(simple)
+    DATA_CASE(three_ranges)
+  END
+
+  BEGIN_PARAMS_SECTION(find2)
+    // Tests find(start, end), find(pair)
+    DATA_CASE(simple)
+  END
+  
 }
 
 
-TEST_CASE("rangeset merge touching insert2"){
-    RangeSet<int> set{};
-    assert_state(set);
-    assert_rangeset_equals({}, set);
-    set.insert(10, 20);
-    assert_state(set);
-    assert_rangeset_equals({
-      {10, 20},
-    }, set);
-    
-    set.insert(30, 40);
-    assert_state(set);
-    assert_rangeset_equals({
-      {10, 20},
-      {30, 40},
-    }, set);
-    
-    set.insert(50, 60);
-    set.insert(70, 80);
-    set.insert(90, 100);
-    
-    assert_state(set);
-    assert_rangeset_equals({
-      {10, 20},
-      {30, 40},
-      {50, 60},
-      {70, 80},
-      {90, 100},
-    }, set);
-    
-    set.insert(30, 40);
-    assert_state(set);
-    assert_rangeset_equals({
-      {10, 20},
-      {30, 40},
-      {50, 60},
-      {70, 80},
-      {90, 100},
-    }, set);
-    
-    set.insert(8, 10);
-    assert_state(set);
-    assert_rangeset_equals({
-      {8, 20},
-      {30, 40},
-      {50, 60},
-      {70, 80},
-      {90, 100},
-    }, set);
+TEST_CASE("(old test cases) rangeset merge touching insert2"){
+  RangeSet<int> set{};
+  assert_state(set);
+  assert_rangeset_equals({}, set);
+  set.insert(10, 20);
+  assert_state(set);
+  assert_rangeset_equals({
+    {10, 20},
+  }, set);
+  
+  set.insert(30, 40);
+  assert_state(set);
+  assert_rangeset_equals({
+    {10, 20},
+    {30, 40},
+  }, set);
+  
+  set.insert(50, 60);
+  set.insert(70, 80);
+  set.insert(90, 100);
+  
+  assert_state(set);
+  assert_rangeset_equals({
+    {10, 20},
+    {30, 40},
+    {50, 60},
+    {70, 80},
+    {90, 100},
+  }, set);
+  
+  set.insert(30, 40);
+  assert_state(set);
+  assert_rangeset_equals({
+    {10, 20},
+    {30, 40},
+    {50, 60},
+    {70, 80},
+    {90, 100},
+  }, set);
+  
+  set.insert(8, 10);
+  assert_state(set);
+  assert_rangeset_equals({
+    {8, 20},
+    {30, 40},
+    {50, 60},
+    {70, 80},
+    {90, 100},
+  }, set);
 
-    set.insert(6, 10);
-    assert_state(set);
-    assert_rangeset_equals({
-      {6, 20},
-      {30, 40},
-      {50, 60},
-      {70, 80},
-      {90, 100},
-    }, set);
-    
-    set.insert(5, 22);
-    assert_state(set);
-    assert_rangeset_equals({
-      {5, 22},
-      {30, 40},
-      {50, 60},
-      {70, 80},
-      {90, 100},
-    }, set);
-    
-    set.insert(100, 105);
-    assert_state(set);
-    assert_rangeset_equals({
-      {5, 22},
-      {30, 40},
-      {50, 60},
-      {70, 80},
-      {90, 105},
-    }, set);
-    
-    set.insert(100, 107);
-    assert_state(set);
-    assert_rangeset_equals({
-      {5, 22},
-      {30, 40},
-      {50, 60},
-      {70, 80},
-      {90, 107},
-    }, set);
+  set.insert(6, 10);
+  assert_state(set);
+  assert_rangeset_equals({
+    {6, 20},
+    {30, 40},
+    {50, 60},
+    {70, 80},
+    {90, 100},
+  }, set);
+  
+  set.insert(5, 22);
+  assert_state(set);
+  assert_rangeset_equals({
+    {5, 22},
+    {30, 40},
+    {50, 60},
+    {70, 80},
+    {90, 100},
+  }, set);
+  
+  set.insert(100, 105);
+  assert_state(set);
+  assert_rangeset_equals({
+    {5, 22},
+    {30, 40},
+    {50, 60},
+    {70, 80},
+    {90, 105},
+  }, set);
+  
+  set.insert(100, 107);
+  assert_state(set);
+  assert_rangeset_equals({
+    {5, 22},
+    {30, 40},
+    {50, 60},
+    {70, 80},
+    {90, 107},
+  }, set);
 
-    set.insert(88, 110);
-    assert_state(set);
-    assert_rangeset_equals({
-      {5, 22},
-      {30, 40},
-      {50, 60},
-      {70, 80},
-      {88, 110},
-    }, set);
-    
-    set.insert(22, 30);
-    assert_state(set);
-    assert_rangeset_equals({
-      {5, 40},
-      {50, 60},
-      {70, 80},
-      {88, 110},
-    }, set);
-    
-    set.insert(20, 55);
-    assert_state(set);
-    assert_rangeset_equals({
-      {5, 60},
-      {70, 80},
-      {88, 110},
-    }, set);
-    
-    set.insert(63, 67);
-    assert_state(set);
-    assert_rangeset_equals({
-      {5, 60},
-      {63, 67},
-      {70, 80},
-      {88, 110},
-    }, set);
-    
-    set.insert(5, 67);
-    assert_state(set);
-    assert_rangeset_equals({
-      {5, 67},
-      {70, 80},
-      {88, 110},
-    }, set);
-    
-    set.insert(2, 115);
-    assert_state(set);
-    assert_rangeset_equals({
-      {2, 115},
-    }, set);
-  }  
+  set.insert(88, 110);
+  assert_state(set);
+  assert_rangeset_equals({
+    {5, 22},
+    {30, 40},
+    {50, 60},
+    {70, 80},
+    {88, 110},
+  }, set);
+  
+  set.insert(22, 30);
+  assert_state(set);
+  assert_rangeset_equals({
+    {5, 40},
+    {50, 60},
+    {70, 80},
+    {88, 110},
+  }, set);
+  
+  set.insert(20, 55);
+  assert_state(set);
+  assert_rangeset_equals({
+    {5, 60},
+    {70, 80},
+    {88, 110},
+  }, set);
+  
+  set.insert(63, 67);
+  assert_state(set);
+  assert_rangeset_equals({
+    {5, 60},
+    {63, 67},
+    {70, 80},
+    {88, 110},
+  }, set);
+  
+  set.insert(5, 67);
+  assert_state(set);
+  assert_rangeset_equals({
+    {5, 67},
+    {70, 80},
+    {88, 110},
+  }, set);
+  
+  set.insert(2, 115);
+  assert_state(set);
+  assert_rangeset_equals({
+    {2, 115},
+  }, set);
+}  
 
-
-TEST_CASE("rangeset merge touching delete2"){
+TEST_CASE("(old test cases) rangeset merge touching delete2"){
     RangeSet<int> set{};
     assert_state(set);
     assert_rangeset_equals({}, set);

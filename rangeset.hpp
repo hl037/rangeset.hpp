@@ -19,8 +19,10 @@ class RangeSet{
   struct end_point_t{
     T v;
     enum {
-      LOWER=MERGE_TOUCHING ? 0 : 1,
-      UPPER=1-LOWER,
+      BEFORE=0,
+      LOWER=MERGE_TOUCHING ? 1 : 2,
+      UPPER=3-LOWER,
+      AFTER=2
     } dir;
     bool operator<(const end_point_t & oth) const{
       return v == oth.v ? dir < oth.dir : v < oth.v;
@@ -58,15 +60,15 @@ class RangeSet{
     inline const_iterator() : lower{} {}
     inline const_iterator(const _sub & lower, const _sub & end) : lower{lower}, end{end}{ update(); }
 
-    inline reference operator*() { return val; }
-    inline pointer operator->() { return &val; }
+    inline reference operator*() const { return val; }
+    inline pointer operator->() const { return &val; }
     inline const_iterator & operator++() { ++++lower; update(); return *this; }
     inline const_iterator operator++(int) { const_iterator res{*this}; ++*this; return res; }
     inline const_iterator & operator--() { ----lower; update(); return *this; }
     inline const_iterator operator--(int) { const_iterator res{*this}; --*this; return res; }
 
-    inline bool operator==(const const_iterator & oth) { return lower == oth.lower; }
-    inline bool operator!=(const const_iterator & oth) { return !(*this == oth); }
+    inline bool operator==(const const_iterator & oth) const { return lower == oth.lower; }
+    inline bool operator!=(const const_iterator & oth) const { return !(*this == oth); }
   };
 
   /**
@@ -170,34 +172,29 @@ class RangeSet{
    * Find the unit range that contains a specific value.
    * Returns cend() if not v is not in the set.
    */
-  const_iterator find(const T & v){
-    auto && lower = data.lower_bound({v, end_point_t::LOWER});
-    if(lower != data.end() && lower->dir == end_point_t::LOWER){
-      return const_iterator(lower, data.end());
+  const_iterator find(const T & v) const {
+    auto && upper = data.upper_bound({v, end_point_t::AFTER}); // v < lower
+    if(upper == data.begin() || upper == data.end() || upper->dir == end_point_t::LOWER){
+      return cend();
     }
     else {
-      return cend();
+      return const_iterator(--upper, data.end());
     }
   }
   
   /**
    * Find the unit range that contains the sub range [start, end) (or [start; end[ )
    */
-  const_iterator find(const T & start, const T & end){
-    auto && lower = data.lower_bound({start, end_point_t::LOWER});
-    auto && upper = ++data.lower_bound({end, end_point_t::UPPER});
-    if(lower != data.end() && upper != data.end
-      && lower->dir == end_point_t::LOWER
-      && upper->dir == end_point_t::UPPER
-      && std::next(lower) == upper
-    ){
-      return const_iterator(lower);
-    }
-    else {
+  const_iterator find(const T & start, const T & end) const {
+    auto && upper = data.upper_bound({start, end_point_t::AFTER}); // v < lower
+    if(upper == data.begin() || upper == data.end() || upper->dir == end_point_t::LOWER || upper->v < end){
       return cend();
     }
+    else {
+      return const_iterator(--upper, data.end());
+    }
   }
-  inline const_iterator find(const std::pair<T,T> & range){
+  inline const_iterator find(const std::pair<T,T> & range) const {
     return find(range.first, range.second);
   }
 

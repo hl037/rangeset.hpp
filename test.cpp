@@ -1,36 +1,333 @@
+#include <initializer_list>
+#include <vector>
 #define private public
 #define protected public
 #include "rangeset.hpp"
 #undef private
 #undef protected
-#include <criterion/criterion.h>
+
+#define CATCH_CONFIG_MAIN
+#include <catch2/catch.hpp>
 
 template <typename T>
-void assert_rangeset_equals(const std::initializer_list<std::pair<T, T> > expected, const RangeSet<T> & set){
-  cr_assert_eq(expected.size(), set.size());
+struct data_case_t
+{
+  private:
+    const T* start;
+    size_t size;
+  public:
+
+  data_case_t()=default;
+  ~data_case_t()=default;
+
+  template<typename B>
+  explicit data_case_t(const B & collection) :
+    start(std::begin(collection))
+  {
+    size = std::end(collection) - start;
+  }
+
+  data_case_t<T> & operator=(const data_case_t<T> &)=default;
+  
+  template<typename B>
+  data_case_t<T> & operator=(const B & collection)
+  {
+    start = std::cbegin(collection);
+    size = std::cend(collection) - start;
+    return *this;
+  }
+
+  const T* begin() const { return start; }
+  const T* end () const { return &start[size]; }
+};
+
+template <typename T>
+void assert_rangeset_equals(const std::initializer_list<std::pair<T, T> > & expected, const RangeSet<T> & set){
+  REQUIRE(expected.size() == set.size());
   auto && it1 = expected.begin(), end1 = expected.end();
   auto && it2 = set.cbegin(), end2 = set.cend();
   for(; it1 != end1 && it2 != end2; ++it1, ++it2) {
-    cr_assert_eq(it1->first, it2->first);
-    cr_assert_eq(it1->second, it2->second);
+    REQUIRE(it2->first == it1->first);
+    REQUIRE(it2->second == it1->second);
   }
 }
 
 template <typename T>
 void assert_state(const RangeSet<T> & set){
-  cr_assert_eq(true, set.data.size() % 2 == 0 );
+  REQUIRE(set.data.size() % 2 == 0 );
   if(set.data.size() % 2){
     return;
   }
   auto && it = set.data.begin(), end = set.data.end();
   while(it != end) {
-    cr_assert_eq((int) it++->dir, (int) RangeSet<T>::end_point_t::LOWER);
-    cr_assert_eq((int) it++->dir, (int) RangeSet<T>::end_point_t::UPPER);
+    REQUIRE((int) it++->dir == (int) RangeSet<T>::end_point_t::LOWER);
+    REQUIRE((int) it++->dir == (int) RangeSet<T>::end_point_t::UPPER);
   }
 }
 
 
-Test(rangeset, insert){
+namespace insert {
+
+struct param_t {
+  const char * name;
+  const std::initializer_list<std::pair<int, int> > inserted;
+  const std::initializer_list<std::pair<int, int> > expected;
+};
+
+static param_t simple[] = {
+  //////// SIMPLE ////////
+  {
+    "Empty is Empty",
+    {},
+    {}
+  },
+  {
+    "Empty inserted to Empty is still Empty",
+    {{5, 5}},
+    {}
+  },
+  {
+    "Insert one element",
+    {{10, 20}},
+    {{10, 20}}
+  },
+  {
+    "Insert 2 elements",
+    {{10, 20}, {30, 40}},
+    {{10, 20}, {30, 40}},
+  },
+  {
+    "Change order",
+    {{30, 40}, {10, 20}},
+    {{10, 20}, {30, 40}},
+  },
+};
+
+static param_t common[] = {
+  //////// COMMON ////////
+  {
+    "Base for other tests + insert at end",
+    {{10, 20}, {30, 40}, {50, 60}},
+    {{10, 20}, {30, 40}, {50, 60}},
+  },
+  {
+    "Insert at start",
+    {{10, 20}, {30, 40}, {50, 60}, {2, 8}},
+    {{2, 8}, {10, 20}, {30, 40}, {50, 60}},
+  },
+  {
+    "Insert empty",
+    {{10, 20}, {30, 40}, {50, 60}, {2, 2}},
+    {{10, 20}, {30, 40}, {50, 60}},
+  },
+  {
+    "Insert empty middle",
+    {{10, 20}, {30, 40}, {50, 60}, {23, 23}},
+    {{10, 20}, {30, 40}, {50, 60}},
+  },
+  {
+    "Insert empty, then insert",
+    {{10, 20}, {2, 2}, {30, 40}, {50, 60}},
+    {{10, 20}, {30, 40}, {50, 60}},
+  },
+  {
+    "Insert empty middle, then insert",
+    {{10, 20}, {23, 23}, {30, 40}, {50, 60}},
+    {{10, 20}, {30, 40}, {50, 60}},
+  },
+  {
+    "Insert inside range does nothing",
+    {{10, 20}, {30, 40}, {50, 60}, {32, 38}},
+    {{10, 20}, {30, 40}, {50, 60}},
+  },
+  {
+    "Insert middle",
+    {{10, 20}, {30, 40}, {50, 60}, {23, 25}},
+    {{10, 20}, {23, 25}, {30, 40}, {50, 60}},
+  },
+  {
+    "Start overlap, begin",
+    {{10, 20}, {30, 40}, {50, 60}, {5, 11}},
+    {{5 , 20}, {30, 40}, {50, 60}},
+  },
+  {
+    "Start overlap, middle",
+    {{10, 20}, {30, 40}, {50, 60}, {25, 31}},
+    {{10, 20}, {25, 40}, {50, 60}},
+  },
+  {
+    "Start overlap, end",
+    {{10, 20}, {30, 40}, {50, 60}, {45, 51}},
+    {{10, 20}, {30, 40}, {45, 60}},
+  },
+  {
+    "End overlap, begin",
+    {{10, 20}, {30, 40}, {50, 60}, {19, 25}},
+    {{10, 25}, {30, 40}, {50, 60}},
+  },
+  {
+    "End overlap, middle",
+    {{10, 20}, {30, 40}, {50, 60}, {39, 45}},
+    {{10, 20}, {30, 45}, {50, 60}},
+  },
+  {
+    "End overlap, end",
+    {{10, 20}, {30, 40}, {50, 60}, {59, 65}},
+    {{10, 20}, {30, 40}, {50, 65}},
+  },
+  {
+    "Both overlap, begin",
+    {{10, 20}, {30, 40}, {50, 60}, {9, 21}},
+    {{9 , 21}, {30, 40}, {50, 60}},
+  },
+  {
+    "Both overlap, middle",
+    {{10, 20}, {30, 40}, {50, 60}, {29, 41}},
+    {{10, 20}, {29, 41}, {50, 60}},
+  },
+  {
+    "Both overlap, end",
+    {{10, 20}, {30, 40}, {50, 60}, {49, 61}},
+    {{10, 20}, {30, 40}, {49, 61}},
+  },
+  {
+    "Join begin",
+    {{10, 20}, {30, 40}, {50, 60}, {19, 31}},
+    {{10, 40}, {50, 60}},
+  },
+  {
+    "Join end",
+    {{10, 20}, {30, 40}, {50, 60}, {39, 51}},
+    {{10, 20}, {30, 60}},
+  },
+  {
+    "Join all",
+    {{10, 20}, {30, 40}, {50, 60}, {19, 51}},
+    {{10, 60}},
+  },
+  {
+    "Join more start, begin",
+    {{10, 20}, {30, 40}, {50, 60}, {9, 31}},
+    {{ 9, 40}, {50, 60}},
+  },
+  {
+    "Join more start, end",
+    {{10, 20}, {30, 40}, {50, 60}, {29, 51}},
+    {{10, 20}, {29, 60}},
+  },
+  {
+    "Join more end, begin",
+    {{10, 20}, {30, 40}, {50, 60}, {11, 41}},
+    {{10, 41}, {50, 60}},
+  },
+  {
+    "Join more end, end",
+    {{10, 20}, {30, 40}, {50, 60}, {31, 61}},
+    {{10, 20}, {30, 61}},
+  },
+  {
+    "Join more both, begin",
+    {{10, 20}, {30, 40}, {50, 60}, {9, 41}},
+    {{9, 41}, {50, 60}},
+  },
+  {
+    "Join more both, end",
+    {{10, 20}, {30, 40}, {50, 60}, {29, 61}},
+    {{10, 20}, {29, 61}},
+  },
+  {
+    "Join more both, all",
+    {{10, 20}, {30, 40}, {50, 60}, {9, 61}},
+    {{ 9, 61}},
+  },
+};
+
+static param_t merge_touching[] = {
+  //////// MERGE_TOUCHING ////////
+  {
+    "Join begin",
+    {{10, 20}, {30, 40}, {50, 60}, {20, 30}},
+    {{10, 40}, {50, 60}},
+  },
+  {
+    "Join end",
+    {{10, 20}, {30, 40}, {50, 60}, {40, 50}},
+    {{10, 20}, {30, 60}},
+  },
+  {
+    "Join all",
+    {{10, 20}, {30, 40}, {50, 60}, {20, 50}},
+    {{10, 60}},
+  },
+  {
+    "Join more start, begin",
+    {{10, 20}, {30, 40}, {50, 60}, {9, 30}},
+    {{ 9, 40}, {50, 60}},
+  },
+  {
+    "Join more start, end",
+    {{10, 20}, {30, 40}, {50, 60}, {29, 50}},
+    {{10, 20}, {29, 60}},
+  },
+  {
+    "Join more end, begin",
+    {{10, 20}, {30, 40}, {50, 60}, {20, 41}},
+    {{10, 41}, {50, 60}},
+  },
+  {
+    "Join more end, end",
+    {{10, 20}, {30, 40}, {50, 60}, {40, 61}},
+    {{10, 20}, {30, 61}},
+  },
+  {
+    "Join more both, begin",
+    {{10, 20}, {30, 40}, {50, 60}, {9, 41}},
+    {{9, 41}, {50, 60}},
+  },
+  {
+    "Join more both, end",
+    {{10, 20}, {30, 40}, {50, 60}, {29, 61}},
+    {{10, 20}, {29, 61}},
+  },
+};
+
+template<typename T>
+void test(RangeSet<T> & set, const data_case_t<param_t> & data_case){
+  for(auto && param:data_case){
+    SECTION(param.name){
+      for(auto && p:param.inserted){
+        set.insert(p);
+      }
+      assert_state(set);
+      assert_rangeset_equals(param.expected, set);
+    }
+  }
+}
+
+}
+
+TEST_CASE("rangeset merge touching"){
+  using namespace insert;
+  RangeSet<int> set;
+  SECTION("insert"){
+    data_case_t<param_t> data;
+    SECTION("simple"){
+      data = simple;
+      test(set, data);
+    }
+    SECTION("common"){
+      data = common;
+      test(set,data);
+    }
+    SECTION("merge_touching"){
+      data = merge_touching;
+      test(set,data);
+    }
+  }
+}
+
+
+TEST_CASE("rangeset merge touching insert2"){
     RangeSet<int> set{};
     assert_state(set);
     assert_rangeset_equals({}, set);
@@ -172,7 +469,7 @@ Test(rangeset, insert){
   }  
 
 
-Test(rangeset, erase){
+TEST_CASE("rangeset merge touching delete2"){
     RangeSet<int> set{};
     assert_state(set);
     assert_rangeset_equals({}, set);

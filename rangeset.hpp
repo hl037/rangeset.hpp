@@ -9,7 +9,7 @@
  *
  * This class supports adding and removing ranges from the set, and testing if a given object or range is contained in the set.
  */
-template <typename T, bool STRICT_OVERLAP=false>
+template <typename T, bool MERGE_TOUCHING=true>
 class RangeSet{
   private:
   /** \internal
@@ -19,7 +19,7 @@ class RangeSet{
   struct end_point_t{
     T v;
     enum {
-      LOWER=STRICT_OVERLAP ? 1 : 0,
+      LOWER=MERGE_TOUCHING ? 0 : 1,
       UPPER=1-LOWER,
     } dir;
     bool operator<(const end_point_t & oth) const{
@@ -74,9 +74,12 @@ class RangeSet{
    *  If overlap occurs, the ranges are merged. if STRICT_OVERLAP is False, [start, mid) and [mid, end) will be merged to [start, end). Else, they will coeexist.
    */
   void insert(T start, T end){
-    auto && upper = data.upper_bound({end, end_point_t::UPPER}); // {end, ')'} < upper OR upper == end() 
+    if(end <= start){
+      return;
+    }
+    auto && upper = data.upper_bound({end, end_point_t::UPPER}); // end) < upper OR upper == end() 
     // At the container begining
-    if(upper == data.begin()){  //    [start , end) < [upper=begin(), end() )
+    if(upper == data.begin()){  //    [start , end) < [ upper=begin(), end() )
       data.insert(data.begin(), {end, end_point_t::UPPER});
       data.insert(data.begin(), {start, end_point_t::LOWER});
       return;
@@ -89,9 +92,10 @@ class RangeSet{
       --upper;
     }
     
-    auto && lower = data.upper_bound({start, end_point_t::LOWER});
+    auto && lower = data.upper_bound({start, end_point_t::LOWER});//    [start < lower
 
-    if((lower == upper || lower->dir == end_point_t::LOWER) && lower->v != start){
+    if((lower == upper || lower->dir == end_point_t::LOWER) && lower->v != start
+        && (lower == data.begin() || std::prev(lower)->dir == end_point_t::UPPER)){
       data.insert(lower, {start, end_point_t::LOWER});
     }
     

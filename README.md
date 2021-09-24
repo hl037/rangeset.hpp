@@ -17,8 +17,8 @@ set.remove(22, 28);
 std::cout<<(set.find(25) != set.end)<<endl; // 0
 std::cout<<(set.find(20) != set.end)<<endl; // 1
 
-std::cout<<(set.find(25, 30) != set.end)<<endl; // 0
-std::cout<<(set.find(30, 35) != set.end)<<endl; // 1
+std::cout<<(set.find(25, 30) != set.end())<<endl; // 0
+std::cout<<(set.find(30, 35) != set.end())<<endl; // 1
 
 for(const std::pair<int, int> & r : set){
   std::cout<<"[ "<<r.first<<" , "<<r.second<<")"<<std::endl;
@@ -35,7 +35,9 @@ make all
 make run
 ```
 
-...It will also generate coverage informations.
+...It will also generate coverage informations. To get a report, do `make coverage`
+
+Any code on master the branch is extensively tested and require 100% coverage.
 
 The library is still under developpement and features like merge, set difference are coming.
 

@@ -30,7 +30,7 @@ std::ostream& operator<< ( std::ostream& os, typename RangeSet<int, false>::cons
 
 
 #define CATCH_CONFIG_ENABLE_PAIR_STRINGMAKER
-#include "test.hpp"
+#include "hl037-test/include/hl037/test.hpp"
 
 
 namespace test_rangeset{
@@ -1457,39 +1457,39 @@ TEST_CASE("rangeset merge touching"){
   RangeSet<int> set;
   BEGIN_PARAMS_SECTION(insert)
     // Tests insert(pair), insert(start, end), const_iterator, cbegin, cend, size, 
-    DATA_CASE(simple)
-    DATA_CASE(common)
-    DATA_CASE(merge_touching)
+    DATA_CASE(simple, set)
+    DATA_CASE(common, set)
+    DATA_CASE(merge_touching, set)
   END
 
   BEGIN_PARAMS_SECTION(remove)
     // Tests remove(pair), remove(start, end) 
-    DATA_CASE(trivial)
-    DATA_CASE(one_range)
-    DATA_CASE(three_ranges)
+    DATA_CASE(trivial, set)
+    DATA_CASE(one_range, set)
+    DATA_CASE(three_ranges, set)
   END
 
   BEGIN_PARAMS_SECTION(find1)
     // Tests find(val)
-    DATA_CASE(simple)
-    DATA_CASE(three_ranges)
+    DATA_CASE(simple, set)
+    DATA_CASE(three_ranges, set)
   END
 
   BEGIN_PARAMS_SECTION(find2)
     // Tests find(start, end), find(pair)
-    DATA_CASE(simple)
-    DATA_CASE(three_ranges)
+    DATA_CASE(simple, set)
+    DATA_CASE(three_ranges, set)
   END
   
   BEGIN_PARAMS_SECTION(erase1)
     // Tests erase(it)
-    DATA_CASE(simple)
+    DATA_CASE(simple, set)
   END
 
   BEGIN_PARAMS_SECTION(erase2)
     // Tests erase(it1, it2)
-    DATA_CASE(simple)
-    DATA_CASE(three_ranges)
+    DATA_CASE(simple, set)
+    DATA_CASE(three_ranges, set)
   END
 }
 
@@ -1497,39 +1497,39 @@ TEST_CASE("rangeset keep touching"){
   RangeSet<int, false> set;
   BEGIN_PARAMS_SECTION(insert)
     // Tests insert(pair), insert(start, end), const_iterator, cbegin, cend, size, 
-    DATA_CASE(simple)
-    DATA_CASE(common)
-    DATA_CASE(keep_touching)
+    DATA_CASE(simple, set)
+    DATA_CASE(common, set)
+    DATA_CASE(keep_touching, set)
   END
 
   BEGIN_PARAMS_SECTION(remove)
     // Tests remove(pair), remove(start, end) 
-    DATA_CASE(trivial)
-    DATA_CASE(one_range)
-    DATA_CASE(three_ranges)
+    DATA_CASE(trivial, set)
+    DATA_CASE(one_range, set)
+    DATA_CASE(three_ranges, set)
   END
 
   BEGIN_PARAMS_SECTION(find1)
     // Tests find(val)
-    DATA_CASE(simple)
-    DATA_CASE(three_ranges)
+    DATA_CASE(simple, set)
+    DATA_CASE(three_ranges, set)
   END
 
   BEGIN_PARAMS_SECTION(find2)
     // Tests find(start, end), find(pair)
-    DATA_CASE(simple)
-    DATA_CASE(three_ranges)
+    DATA_CASE(simple, set)
+    DATA_CASE(three_ranges, set)
   END
   
   BEGIN_PARAMS_SECTION(erase1)
     // Tests erase(it)
-    DATA_CASE(simple)
+    DATA_CASE(simple, set)
   END
   
   BEGIN_PARAMS_SECTION(erase2)
     // Tests erase(it1, it2)
-    DATA_CASE(simple)
-    DATA_CASE(three_ranges)
+    DATA_CASE(simple, set)
+    DATA_CASE(three_ranges, set)
   END
 }
 
